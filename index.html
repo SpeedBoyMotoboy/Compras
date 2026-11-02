@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#16a34a">
+  <meta name="description" content="Lista de compras do mercado com preços, orçamento e histórico.">
+  <title>Compras</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button id="btnBack" class="icon-btn hidden" aria-label="Voltar">&#8592;</button>
+    <h1 id="title">Minhas listas</h1>
+    <button id="btnMenu" class="icon-btn hidden" aria-label="Opções da lista">&#8942;</button>
+  </header>
+
+  <!-- Tela: listas -->
+  <main id="viewLists" class="view">
+    <form id="formNewList" class="row">
+      <input id="newListName" type="text" placeholder="Nova lista (ex: Compra do mês)" maxlength="60" required>
+      <button class="btn primary" type="submit">Criar</button>
+    </form>
+    <ul id="lists" class="cards"></ul>
+    <p id="listsEmpty" class="empty">Nenhuma lista ainda. Crie a primeira acima.</p>
+
+    <section id="historySection" class="hidden">
+      <h2>Histórico de compras</h2>
+      <ul id="history" class="cards"></ul>
+    </section>
+  </main>
+
+  <!-- Tela: itens da lista -->
+  <main id="viewList" class="view hidden">
+    <section class="summary">
+      <div><span class="label">No carrinho</span><strong id="sumCart">R$ 0,00</strong></div>
+      <div><span class="label">Total previsto</span><strong id="sumTotal">R$ 0,00</strong></div>
+      <div><span class="label">Orçamento</span><strong id="sumBudget" class="link">definir</strong></div>
+    </section>
+    <div class="progress"><div id="progressBar"></div></div>
+    <p id="budgetWarn" class="warn hidden"></p>
+
+    <form id="formItem" class="item-form">
+      <input id="itemName" type="text" placeholder="Item (ex: Arroz 5kg)" list="suggestions" maxlength="80" required autocomplete="off">
+      <datalist id="suggestions"></datalist>
+      <div class="row">
+        <input id="itemQty" type="number" inputmode="decimal" min="0" step="any" placeholder="Qtd" value="1">
+        <select id="itemUnit">
+          <option>un</option><option>kg</option><option>g</option><option>L</option><option>pct</option><option>cx</option>
+        </select>
+        <input id="itemPrice" type="text" inputmode="decimal" placeholder="Preço R$">
+      </div>
+      <div class="row">
+        <select id="itemCat"></select>
+        <button class="btn primary" type="submit">Adicionar</button>
+      </div>
+    </form>
+
+    <div class="row filters">
+      <input id="search" type="search" placeholder="Buscar item...">
+      <label class="toggle"><input id="hideDone" type="checkbox"> Ocultar pegos</label>
+    </div>
+
+    <div id="items"></div>
+    <p id="itemsEmpty" class="empty">Lista vazia. Adicione itens acima.</p>
+
+    <div class="actions">
+      <button id="btnFinish" class="btn primary wide">Finalizar compra</button>
+    </div>
+  </main>
+
+  <!-- Menu da lista -->
+  <dialog id="menu">
+    <div class="sheet">
+      <button data-act="share" class="btn wide">Compartilhar (WhatsApp)</button>
+      <button data-act="copy" class="btn wide">Copiar como texto</button>
+      <button data-act="rename" class="btn wide">Renomear lista</button>
+      <button data-act="duplicate" class="btn wide">Duplicar lista</button>
+      <button data-act="uncheck" class="btn wide">Desmarcar todos</button>
+      <button data-act="clearDone" class="btn wide">Remover itens pegos</button>
+      <button data-act="delete" class="btn wide danger">Excluir lista</button>
+      <button data-act="close" class="btn wide ghost">Fechar</button>
+    </div>
+  </dialog>
+
+  <!-- Editar item -->
+  <dialog id="editDialog">
+    <form id="formEdit" class="sheet" method="dialog">
+      <h2>Editar item</h2>
+      <input id="editName" type="text" maxlength="80" required>
+      <div class="row">
+        <input id="editQty" type="number" inputmode="decimal" min="0" step="any" placeholder="Qtd">
+        <select id="editUnit">
+          <option>un</option><option>kg</option><option>g</option><option>L</option><option>pct</option><option>cx</option>
+        </select>
+        <input id="editPrice" type="text" inputmode="decimal" placeholder="Preço R$">
+      </div>
+      <select id="editCat"></select>
+      <div class="row">
+        <button type="button" id="btnDeleteItem" class="btn danger">Excluir</button>
+        <button type="button" id="btnCancelEdit" class="btn ghost">Cancelar</button>
+        <button type="submit" class="btn primary">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
