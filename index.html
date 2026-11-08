@@ -75,7 +75,7 @@
   <!-- Menu da lista -->
   <dialog id="menu">
     <div class="sheet">
-      <button data-act="share" class="btn wide">Compartilhar (WhatsApp)</button>
+      <a id="shareLink" data-act="share" class="btn wide" href="https://wa.me/" target="_blank" rel="noopener">Enviar pelo WhatsApp</a>
       <button data-act="copy" class="btn wide">Copiar como texto</button>
       <button data-act="rename" class="btn wide">Renomear lista</button>
       <button data-act="duplicate" class="btn wide">Duplicar lista</button>
@@ -103,6 +103,19 @@
         <button type="button" id="btnDeleteItem" class="btn danger">Excluir</button>
         <button type="button" id="btnCancelEdit" class="btn ghost">Cancelar</button>
         <button type="submit" class="btn primary">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Confirmação / pergunta -->
+  <dialog id="askDialog">
+    <form id="formAsk" class="sheet">
+      <h2 id="askTitle"></h2>
+      <p id="askMsg" class="ask-msg"></p>
+      <input id="askInput" type="text" maxlength="80" autocomplete="off">
+      <div class="row">
+        <button type="button" id="askCancel" class="btn ghost">Cancelar</button>
+        <button type="submit" id="askOk" class="btn primary">OK</button>
       </div>
     </form>
   </dialog>

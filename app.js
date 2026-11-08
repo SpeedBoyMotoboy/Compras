@@ -63,6 +63,39 @@ function toast(msg, actionLabel, action) {
   toastTimer = setTimeout(() => el.classList.remove('show'), actionLabel ? 5000 : 2500);
 }
 
+// ---------- Caixa de diálogo (substitui prompt/confirm) ----------
+// Resolve com true (confirmação), o texto digitado (campo) ou null (cancelado).
+function ask({ title, message = '', input = null, ok = 'OK', danger = false }) {
+  return new Promise((resolve) => {
+    const d = $('#askDialog');
+    const field = $('#askInput');
+    $('#askTitle').textContent = title;
+    $('#askMsg').textContent = message;
+    $('#askMsg').classList.toggle('hidden', !message);
+    field.classList.toggle('hidden', input === null);
+    if (input !== null) {
+      field.value = input.value || '';
+      field.placeholder = input.placeholder || '';
+      field.inputMode = input.mode || 'text';
+    }
+    const okBtn = $('#askOk');
+    okBtn.textContent = ok;
+    okBtn.className = 'btn ' + (danger ? 'danger-fill' : 'primary');
+    let settled = false;
+    const done = (v) => {
+      if (settled) return;
+      settled = true;
+      d.close();
+      resolve(v);
+    };
+    $('#formAsk').onsubmit = (e) => { e.preventDefault(); done(input === null ? true : field.value); };
+    $('#askCancel').onclick = () => done(null);
+    d.oncancel = (e) => { e.preventDefault(); done(null); };
+    d.showModal();
+    if (input !== null) { field.focus(); field.select(); }
+  });
+}
+
 // ---------- Navegação ----------
 function showLists() {
   currentId = null;
@@ -83,7 +116,6 @@ function openList(id) {
   renderList();
   window.scrollTo(0, 0);
 }
-window.addEventListener('popstate', () => { if (currentId) showLists(); });
 
 // ---------- Render: listas ----------
 function renderLists() {
@@ -99,7 +131,7 @@ function renderLists() {
         <div class="meta">${t.done}/${l.items.length} itens${l.budget ? ' · orçamento ' + money(l.budget) : ''}</div>
       </div>
       <div class="amount">${money(t.total)}</div>`;
-    li.onclick = () => { history.pushState({ list: l.id }, ''); openList(l.id); };
+    li.onclick = () => openList(l.id);
     ul.appendChild(li);
   });
   $('#listsEmpty').classList.toggle('hidden', state.lists.length > 0);
@@ -117,11 +149,11 @@ function renderLists() {
         <div class="meta">${new Date(h.date).toLocaleDateString('pt-BR')} · ${h.count} itens</div>
       </div>
       <div class="amount">${money(h.total)}</div>`;
-    li.onclick = () => {
-      if (confirm(`Remover "${h.name}" do histórico?`)) {
-        state.history = state.history.filter((x) => x.id !== h.id);
-        save(); renderLists();
-      }
+    li.onclick = async () => {
+      const yes = await ask({ title: 'Remover do histórico?', message: `${h.name} · ${money(h.total)}`, ok: 'Remover', danger: true });
+      if (!yes) return;
+      state.history = state.history.filter((x) => x.id !== h.id);
+      save(); renderLists();
     };
     hu.appendChild(li);
   });
@@ -193,11 +225,17 @@ function itemRow(it) {
       <button data-d="-1" aria-label="Diminuir">−</button>
       <button data-d="1" aria-label="Aumentar">+</button>
     </div>`;
-  row.querySelector('input').onchange = (e) => {
+  row.querySelector('input').onchange = async (e) => {
     it.done = e.target.checked;
+    save(); renderList();
     if (it.done && !it.price) {
       // pede o preço na hora de pegar o item
-      const p = prompt(`Preço de "${it.name}" (por ${it.unit}):`, '');
+      const p = await ask({
+        title: `Preço de ${it.name}`,
+        message: `Valor por ${it.unit}. Deixe vazio se não souber.`,
+        input: { placeholder: 'Ex: 7,50', mode: 'decimal' },
+        ok: 'Salvar preço'
+      });
       if (p !== null) it.price = parseNum(p);
     }
     remember(it); save(); renderList();
@@ -241,7 +279,6 @@ $('#formNewList').onsubmit = (e) => {
   state.lists.unshift(l);
   save();
   $('#newListName').value = '';
-  history.pushState({ list: l.id }, '');
   openList(l.id);
 };
 
@@ -285,30 +322,39 @@ $('#formItem').onsubmit = (e) => {
 
 $('#search').oninput = renderList;
 $('#hideDone').onchange = renderList;
-$('#btnBack').onclick = () => history.back();
+$('#btnBack').onclick = showLists;
 
-$('#sumBudget').onclick = () => {
+$('#sumBudget').onclick = async () => {
   const l = current();
-  const v = prompt('Orçamento para esta compra (R$). Deixe vazio para remover:', l.budget ? fmtNum(l.budget) : '');
+  const v = await ask({
+    title: 'Orçamento da compra',
+    message: 'Quanto você quer gastar? Deixe vazio para remover.',
+    input: { value: l.budget ? fmtNum(l.budget) : '', placeholder: 'Ex: 400', mode: 'decimal' },
+    ok: 'Salvar'
+  });
   if (v === null) return;
   l.budget = parseNum(v);
   save(); renderList();
 };
 
-$('#btnFinish').onclick = () => {
+$('#btnFinish').onclick = async () => {
   const l = current();
   const t = listTotals(l);
   if (!t.done) return toast('Marque os itens que você pegou');
   const pending = l.items.length - t.done;
-  const msg = `Finalizar compra com ${t.done} itens, total ${money(t.cart)}?` +
-    (pending ? `\n\n${pending} item(ns) não marcado(s) continuarão na lista.` : '');
-  if (!confirm(msg)) return;
+  const yes = await ask({
+    title: `Finalizar compra de ${money(t.cart)}?`,
+    message: `${t.done} itens vão para o histórico.` +
+      (pending ? ` ${pending} item(ns) não marcado(s) continuam na lista.` : ''),
+    ok: 'Finalizar'
+  });
+  if (!yes) return;
   state.history.unshift({ id: uid(), name: l.name, date: Date.now(), total: t.cart, count: t.done });
   l.items.forEach(remember);
   l.items = l.items.filter((it) => !it.done);
   save();
   toast(`Compra registrada: ${money(t.cart)}`);
-  if (!l.items.length) history.back(); else renderList();
+  if (!l.items.length) showLists(); else renderList();
 };
 
 // ---------- Editar item ----------
@@ -361,7 +407,10 @@ function listAsText(l) {
   return lines.join('\n');
 }
 
-$('#btnMenu').onclick = () => $('#menu').showModal();
+$('#btnMenu').onclick = () => {
+  $('#shareLink').href = 'https://wa.me/?text=' + encodeURIComponent(listAsText(current()));
+  $('#menu').showModal();
+};
 $('#menu').addEventListener('click', async (e) => {
   if (e.target === $('#menu')) return $('#menu').close();
   const act = e.target.dataset && e.target.dataset.act;
@@ -369,21 +418,14 @@ $('#menu').addEventListener('click', async (e) => {
   const l = current();
   $('#menu').close();
   switch (act) {
-    case 'share': {
-      const text = listAsText(l);
-      if (navigator.share) {
-        try { await navigator.share({ title: l.name, text }); } catch (err) { /* cancelado */ }
-      } else {
-        window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
-      }
+    case 'share': // o próprio link abre o WhatsApp
       break;
-    }
     case 'copy':
       try { await navigator.clipboard.writeText(listAsText(l)); toast('Lista copiada'); }
-      catch (err) { toast('Não foi possível copiar'); }
+      catch (err) { toast('Não foi possível copiar neste aparelho'); }
       break;
     case 'rename': {
-      const n = prompt('Novo nome da lista:', l.name);
+      const n = await ask({ title: 'Renomear lista', input: { value: l.name }, ok: 'Salvar' });
       if (n && n.trim()) { l.name = n.trim(); save(); renderList(); }
       break;
     }
@@ -394,7 +436,6 @@ $('#menu').addEventListener('click', async (e) => {
       };
       state.lists.unshift(copy);
       save();
-      history.replaceState({ list: copy.id }, '');
       openList(copy.id);
       toast('Lista duplicada');
       break;
@@ -413,10 +454,10 @@ $('#menu').addEventListener('click', async (e) => {
       break;
     }
     case 'delete':
-      if (confirm(`Excluir a lista "${l.name}"?`)) {
+      if (await ask({ title: `Excluir "${l.name}"?`, message: 'A lista e seus itens serão apagados.', ok: 'Excluir', danger: true })) {
         state.lists = state.lists.filter((x) => x.id !== l.id);
         save();
-        history.back();
+        showLists();
       }
       break;
   }
@@ -425,5 +466,5 @@ $('#menu').addEventListener('click', async (e) => {
 // ---------- Início ----------
 showLists();
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) { /* sem suporte */ }
 }
